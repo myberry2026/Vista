@@ -64,4 +64,25 @@ Extract the "Google Street View Virtual Tour Guide" (`street-walk` mode) from th
 - [x] Cleaned up Git history to completely remove any trace of `proposal.md` or the legacy `Aeva` folder.
   清理了 Git 历史，彻底移除了 `proposal.md` 和遗留 `Aeva` 文件夹的所有痕迹。
 - [x] Verified build correctness using production bundling, typecheck, and unit test runners.
-  使用生产打包、类型检查和单元测试运行器验证了构建的正确性。
+  使用生产打包、类型检查和单元测试运行器验证了构建 of 整个项目的正确性。
+
+### Phase 6: Voice Input Fix / 第六阶段：语音输入修复
+- [x] Diagnosed microphone voice recognition failure: Modern browsers automatically suspend `new AudioContext()` if it is not synchronously instantiated in a user gesture callback. The preceding asynchronous `getUserMedia` call shifts the call stack, causing the context to start in a `suspended` state.
+  诊断了麦克风语音无法识别的问题：现代浏览器如果在用户手势回调中不是同步实例化 `new AudioContext()`，则会自动挂起它。由于在此之前有异步的 `getUserMedia` 调用，导致 AudioContext 启动时处于 `suspended` 挂起状态。
+- [x] Resolved the issue by adding an asynchronous `audioCtx.resume()` check to `src/App.tsx` directly after creation.
+  通过在 `src/App.tsx` 创建 AudioContext 后，直接添加异步 `audioCtx.resume()` 检查，从而解决了该问题。
+- [x] Compared audio graph architectures with `../Aeva`: Identified that Aeva has a leftover duplicate connection (`source.connect(pcmNode)`) in its WebSocket `onopen` handler which bypasses the gain node (breaking mic ducking/mute control). Vista keeps the clean, gain-controlled audio pipeline (`source -> micGainNode -> pcmNode`).
+  与 `../Aeva` 的音频图结构进行了对比：发现 Aeva 在 WebSocket 的 `onopen` 处理器中存在一个遗留的重复连接（`source.connect(pcmNode)`），它绕过了增益节点（这导致麦克风的降噪/静音控制在 Aeva 中失效）。而 Vista 保持了干净的且受增益控制的音频管线（`source -> micGainNode -> pcmNode`）。
+- [x] Verified all unit tests, static typechecks, and production bundle builds pass successfully.
+  验证了所有单元测试、静态类型检查和生产环境打包均成功通过。
+
+---
+
+## Lessons and Learnings / 经验与教训 (Continued)
+4. **AudioContext Activation Lifecycle / AudioContext 激活生命周期**:
+   Browsers strictly restrict audio auto-play and recording. If `AudioContext` is created following an asynchronous operation (e.g. `await getUserMedia(...)`), the user-gesture activation state is lost, causing the browser to set the context state to `suspended`. To ensure the AudioWorklet runs and streams PCM chunks, one must check and explicitly invoke `audioCtx.resume()`.
+   浏览器对音频自动播放和录制有着严格的限制。如果在异步操作（例如 `await getUserMedia(...)`）之后创建 `AudioContext`，用户手势的激活状态会丢失，从而导致浏览器将音频上下文置为 `suspended`（挂起）状态。为确保 AudioWorklet 正常运行并传输 PCM 分片，必须检查并显式调用 `audioCtx.resume()`。
+5. **Clean Audio Graph Design / 干净的音频图设计**:
+   Leftover debugging code (like duplicate node connections) can completely bypass control nodes like `GainNode`, breaking soft-ducking and mute features silently. It is important to trace all node connections in the Audio Graph systematically rather than adding fallback connections ad-hoc.
+   遗留的调试代码（例如重复的节点连接）会彻底绕过像 `GainNode` 这样的控制节点，导致降噪/静音功能在不知不觉中失效。系统地梳理音频图中的所有节点连接，而不是临时添加备用连接，是非常重要的。
+

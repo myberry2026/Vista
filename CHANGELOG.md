@@ -20,3 +20,10 @@ All notable changes to this project will be documented in this file.
 - **Configuration Clean Up**: Removed legacy `Aeva/` directory exclusion rules from `tsconfig.json`, `package.json`, `.gitignore`, and `.dockerignore` since the folder is now completely out of the workspace.
 - **Git History Clean Up**: Purged `proposal.md` and any traces of legacy `Aeva` commits from the Git history by re-initializing the local repository with a clean commit history.
 
+## [1.2.0] - 2026-05-22
+
+### Fixed
+- **Audio Context Suspension**: Resolved microphone voice recognition failure by checking if `AudioContext` is suspended (often due to browser gesture requirements during async `getUserMedia` calls) and explicitly calling `resume()` to start the AudioWorklet node.
+- **Audio Graph**: Compared and cleaned up the Audio Graph pipeline, avoiding duplicate direct connections found in the reference project (`../Aeva`) to preserve functioning mic ducking and mute capabilities.
+
+
