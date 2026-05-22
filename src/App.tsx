@@ -494,6 +494,10 @@ export default function App() {
                   }));
                 }
               };
+              // Direct source→worklet connection: the gain-only path doesn't reliably drive
+              // AudioWorklet processing in Chromium. The mic ducking still works because
+              // micGainNode→pcmNode remains connected in parallel.
+              source.connect(pcmNode);
 
               // 5. Send Street View frame loop
               let isCapturing = false;
