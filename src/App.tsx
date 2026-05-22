@@ -367,6 +367,12 @@ export default function App() {
       audioContextRef.current = audioCtx;
       nextPlayTimeRef.current = audioCtx.currentTime;
 
+      if (audioCtx.state === 'suspended') {
+        console.warn('[TourGuide] AudioContext is suspended (due to async getUserMedia call stack shift). Resuming...');
+        await audioCtx.resume();
+        console.log(`[TourGuide] AudioContext state after resume: ${audioCtx.state}`);
+      }
+
       const blob = new Blob([pcmProcessorCode], { type: 'application/javascript' });
       const workletUrl = URL.createObjectURL(blob);
       await audioCtx.audioWorklet.addModule(workletUrl);
