@@ -75,6 +75,8 @@ Extract the "Google Street View Virtual Tour Guide" (`street-walk` mode) from th
   与 `../Aeva` 的音频图结构进行了对比：发现 Aeva 在 WebSocket 的 `onopen` 处理器中存在一个遗留的重复连接（`source.connect(pcmNode)`），它绕过了增益节点（这导致麦克风的降噪/静音控制在 Aeva 中失效）。而 Vista 保持了干净的且受增益控制的音频管线（`source -> micGainNode -> pcmNode`）。
 - [x] Verified all unit tests, static typechecks, and production bundle builds pass successfully.
   验证了所有单元测试、静态类型检查和生产环境打包均成功通过。
+- [x] Finalized rebranding as "Vista" and synchronized with remote repository.
+  完成了以 "Vista" 为名的最终品牌重塑，并与远程仓库同步。
 
 ---
 
