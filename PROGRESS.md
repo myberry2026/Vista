@@ -78,6 +78,12 @@ Extract the "Google Street View Virtual Tour Guide" (`street-walk` mode) from th
 - [x] Finalized rebranding as "Vista" and synchronized with remote repository.
   完成了以 "Vista" 为名的最终品牌重塑，并与远程仓库同步。
 
+### Phase 7: One-Click Deployment / 第七阶段：一键部署
+- [x] Created `app.json` to define environment variables and resource limits for Cloud Run Button.
+  创建了 `app.json`，为 Cloud Run 按钮定义了环境变量和资源限制。
+- [x] Created `README.md` with the "Run on Google Cloud" button and usage instructions.
+  创建了 `README.md`，包含“Run on Google Cloud”按钮及使用说明。
+
 ---
 
 ## Lessons and Learnings / 经验与教训 (Continued)

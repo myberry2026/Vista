@@ -26,4 +26,10 @@ All notable changes to this project will be documented in this file.
 - **Audio Context Suspension**: Resolved microphone voice recognition failure by checking if `AudioContext` is suspended (often due to browser gesture requirements during async `getUserMedia` calls) and explicitly calling `resume()` to start the AudioWorklet node.
 - **Audio Graph**: Compared and cleaned up the Audio Graph pipeline, avoiding duplicate direct connections found in the reference project (`../Aeva`) to preserve functioning mic ducking and mute capabilities.
 
+## [1.3.0] - 2026-05-22
+
+### Added
+- **One-Click Deployment**: Added `app.json` and a "Run on Google Cloud" button in `README.md` to simplify deployment to Cloud Run.
+- **Documentation**: Initialized `README.md` with features, setup guide, and deployment instructions.
+
 
