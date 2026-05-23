@@ -18,7 +18,7 @@ if (fs.existsSync('.env.local')) {
   dotenv.config({ path: '.env.local' });
 }
 
-export const PLANNING_MODEL = 'gemini-2.5-flash';
+export const PLANNING_MODEL = 'gemini-3.5-flash';
 
 const MIN_STOPS = 4;
 const MAX_STOPS = 6;
