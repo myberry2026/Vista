@@ -8,7 +8,7 @@ if (fs.existsSync('.env.local')) {
   dotenv.config({ path: '.env.local' });
 }
 
-const CLIENT_SIDE_TOOLS = ['navigate', 'teleport'];
+const CLIENT_SIDE_TOOLS = ['navigate', 'teleport', 'tour_next', 'tour_back', 'tour_stop'];
 const CLIENT_SIDE_SET = new Set(CLIENT_SIDE_TOOLS);
 
 const toolsDeclaration = [
@@ -41,17 +41,44 @@ const toolsDeclaration = [
           },
           required: ["location"]
         }
+      },
+      {
+        name: "tour_next",
+        description: "Advance the active guided tour to the next stop. Call this ONLY when the user gives an affirmative reply to continue (e.g. 'next', 'continue', \"let's go\", 'sure', 'OK', 'yep next one', '下一个', '继续', '走吧'). Do not call if the user asks a question or wants to linger.",
+        parameters: { type: "OBJECT", properties: {} }
+      },
+      {
+        name: "tour_back",
+        description: "Go back to the previous stop on the active guided tour. Call this when the user asks to revisit the previous stop (e.g. 'back', 'previous', 'go back', '上一个', '回到上一站').",
+        parameters: { type: "OBJECT", properties: {} }
+      },
+      {
+        name: "tour_stop",
+        description: "End the active guided tour. Call this ONLY when the user explicitly asks to stop or end the tour (e.g. 'stop the tour', 'end tour', \"I'm done\", '结束游览').",
+        parameters: { type: "OBJECT", properties: {} }
       }
     ]
   }
 ];
 
-const DEFAULT_SYSTEM_INSTRUCTION = `You are a virtual tour guide. You guide the user through famous places using Google Street View. 
-You should be engaging, informative, and friendly. 
-You have access to the 'navigate' and 'teleport' tools to move around. 
-Talk in a friendly tour-guide voice. Since you receive a live video stream of the user's Street View frame, you can see what is currently on the screen. 
-Describe the landmarks, buildings, and streets that you see, and respond dynamically to user requests. 
-Move the camera when they ask you to turn left, right, or go forward, or teleport them to new locations when they ask. Keep your responses relatively short, conversational, and tailored to what is visible.`;
+const DEFAULT_SYSTEM_INSTRUCTION = `You are a virtual tour guide. You guide the user through famous places using Google Street View.
+You should be engaging, informative, and friendly.
+You have access to the 'navigate' and 'teleport' tools to move around.
+Talk in a friendly tour-guide voice. Since you receive a live video stream of the user's Street View frame, you can see what is currently on the screen.
+Describe the landmarks, buildings, and streets that you see, and respond dynamically to user requests.
+Move the camera when they ask you to turn left, right, or go forward, or teleport them to new locations when they ask. Keep your responses relatively short, conversational, and tailored to what is visible.
+
+# Guided Tour mode
+The user may also start a multi-stop guided tour. When they do, you will receive system messages of the form:
+"[Tour] Arrived at Stop K of N: <name>. Read this narration aloud verbatim, then ask if they'd like to continue or have a question: \"<narration>\""
+
+In Guided Tour mode:
+1. Read the provided narration aloud closely (you may smooth phrasing slightly but do not invent facts).
+2. Then ASK the user whether they'd like to head to the next stop, or whether they have a question first.
+3. If they affirm (any language), call the 'tour_next' tool.
+4. If they ask to go back, call 'tour_back'. If they ask to stop the tour, call 'tour_stop'.
+5. If they ask a question, answer it (using what you see in the live frame and what you know). Then re-offer to continue. Do NOT call tour_next without an affirmative reply.
+6. The 'navigate' and 'teleport' tools are still available for ad-hoc detours during a tour.`;
 
 export function attachWebsocketServer(server) {
   const wss = new WebSocketServer({ noServer: true });

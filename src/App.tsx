@@ -26,9 +26,11 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { StreetWalkPanorama } from './components/StreetWalkPanorama';
+import { TourOverlay } from './components/TourOverlay';
 import { CONFIG } from './config';
 import { uint8ArrayToBase64, getReconnectDelayMs } from './utils';
 import { handleNavigate, handleTeleport, resolveMapsApiKey } from './lib/map_tools';
+import { useTour } from './lib/useTour';
 
 export interface TranscriptItem {
   id: string;
@@ -95,6 +97,20 @@ export default function App() {
   const [isContinuousTalking, setIsContinuousTalking] = useState(CONFIG.DEFAULT_AUTO_CHAT_ENABLED);
   const [autoChatDelay, setAutoChatDelay] = useState<number>(1000);
   const [showSettings, setShowSettings] = useState(false);
+  const tourController = useTour();
+  const tourActive = tourController.tour !== null;
+  const activeStopMapQuery = tourController.activeStop?.map_query ?? null;
+  const activeStopName = tourController.activeStop?.name ?? null;
+  const activeStopNarration = tourController.activeStop?.narration ?? null;
+  const activeStopIndex = tourController.activeIndex;
+  const totalStops = tourController.tour?.stops.length ?? 0;
+  // Stash the controller in a ref so handleClientToolCall (which is a
+  // useCallback with no deps) can reach the latest version when tour_next
+  // / tour_back / tour_stop fire.
+  const tourControllerRef = useRef(tourController);
+  useEffect(() => { tourControllerRef.current = tourController; }, [tourController]);
+  const statusRef = useRef(status);
+  useEffect(() => { statusRef.current = status; }, [status]);
 
   // Refs for audio pipeline
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -140,6 +156,69 @@ export default function App() {
       transcriptEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [transcript]);
+
+  // Fly the Street View camera whenever the active tour stop changes.
+  useEffect(() => {
+    if (!activeStopMapQuery) return;
+    let cancelled = false;
+    const panorama = (window as any)._vistaStreetWalkContext?.panorama;
+    if (!panorama) {
+      console.warn('[TourGuide] Tour stop changed but panorama is not ready yet.');
+      return;
+    }
+    if (typeof google === 'undefined' || !google.maps?.Geocoder) {
+      console.warn('[TourGuide] Tour stop changed but Google Maps API not loaded.');
+      return;
+    }
+    console.log(`[TourGuide] Tour → flying to "${activeStopMapQuery}"`);
+    handleTeleport(
+      activeStopMapQuery,
+      panorama,
+      new google.maps.Geocoder(),
+      new google.maps.StreetViewService(),
+    ).then(res => {
+      if (cancelled) return;
+      if (res.status === 'success') {
+        setTranscript(prev => [...prev, {
+          id: `tour-arrive-${Date.now()}`,
+          role: 'model',
+          text: `[Tour] Arrived at ${activeStopName}`,
+          isFinal: true,
+        }]);
+
+        // If Live is connected, hand the narration to the guide so it speaks it
+        // aloud and then waits for the user's reply ("next" / a question / etc.).
+        if (statusRef.current === 'connected' && sessionRef.current && activeStopNarration) {
+          const stopNum = activeStopIndex + 1;
+          const escaped = activeStopNarration.replace(/"/g, '\\"');
+          try {
+            sessionRef.current.sendClientContent({
+              turns: [{
+                role: 'user',
+                parts: [{
+                  text:
+                    `[Tour] Arrived at Stop ${stopNum} of ${totalStops}: ${activeStopName}. ` +
+                    `Read this narration aloud verbatim, then ask if they'd like to continue ` +
+                    `or have a question: "${escaped}"`,
+                }],
+              }],
+              turnComplete: true,
+            });
+          } catch (e) {
+            console.error('[TourGuide] Failed to inject tour narration:', e);
+          }
+        }
+      } else {
+        setTranscript(prev => [...prev, {
+          id: `tour-skip-${Date.now()}`,
+          role: 'model',
+          text: `[Tour] Street View not available for ${activeStopName} — ${res.message || 'skipping'}`,
+          isFinal: true,
+        }]);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [activeStopMapQuery, activeStopName, activeStopNarration, activeStopIndex, totalStops]);
 
   // Load and refresh input devices
   useEffect(() => {
@@ -257,6 +336,34 @@ export default function App() {
             new google.maps.Geocoder(),
             new google.maps.StreetViewService()
           );
+        } else if (call.name === 'tour_next') {
+          const ctl = tourControllerRef.current;
+          if (!ctl.tour) {
+            result = { status: 'error', message: 'No active guided tour.' };
+          } else if (ctl.isEnded) {
+            result = { status: 'error', message: 'Tour is already complete.' };
+          } else {
+            ctl.next();
+            result = { status: 'success', action: 'Advanced to next stop' };
+          }
+        } else if (call.name === 'tour_back') {
+          const ctl = tourControllerRef.current;
+          if (!ctl.tour) {
+            result = { status: 'error', message: 'No active guided tour.' };
+          } else if (ctl.activeIndex <= 0) {
+            result = { status: 'error', message: 'Already at the first stop.' };
+          } else {
+            ctl.prev();
+            result = { status: 'success', action: 'Returned to previous stop' };
+          }
+        } else if (call.name === 'tour_stop') {
+          const ctl = tourControllerRef.current;
+          if (!ctl.tour) {
+            result = { status: 'error', message: 'No active guided tour.' };
+          } else {
+            ctl.reset();
+            result = { status: 'success', action: 'Tour ended' };
+          }
         } else {
           result = { status: 'error', message: `Unknown tool: ${call.name}` };
         }
@@ -992,21 +1099,26 @@ export default function App() {
           <div className="flex-1 w-full relative">
             <StreetWalkPanorama />
 
-            {/* Quick Suggestions overlay top center */}
-            <div className="absolute top-4 left-4 right-4 flex gap-2 flex-wrap pointer-events-auto z-10">
-              <button onClick={() => teleportShortcut('Times Square, NY')} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-950/80 border border-zinc-800 hover:border-emerald-500/50 hover:bg-zinc-900 text-zinc-300 backdrop-blur-md transition-all">
-                🗽 Times Square
-              </button>
-              <button onClick={() => teleportShortcut('Eiffel Tower, Paris')} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-950/80 border border-zinc-800 hover:border-emerald-500/50 hover:bg-zinc-900 text-zinc-300 backdrop-blur-md transition-all">
-                🗼 Eiffel Tower
-              </button>
-              <button onClick={() => teleportShortcut('Shibuya Crossing, Tokyo')} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-950/80 border border-zinc-800 hover:border-emerald-500/50 hover:bg-zinc-900 text-zinc-300 backdrop-blur-md transition-all">
-                🍣 Shibuya Crossing
-              </button>
-              <button onClick={() => teleportShortcut('Colosseum, Rome')} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-950/80 border border-zinc-800 hover:border-emerald-500/50 hover:bg-zinc-900 text-zinc-300 backdrop-blur-md transition-all">
-                🏛️ Colosseum
-              </button>
-            </div>
+            {/* Guided tour overlay (planner → state machine → cards) */}
+            <TourOverlay controller={tourController} />
+
+            {/* Quick Suggestions — only shown when no tour is active */}
+            {!tourActive && (
+              <div className="absolute top-4 left-[352px] right-4 flex gap-2 flex-wrap pointer-events-auto z-10">
+                <button onClick={() => teleportShortcut('Times Square, NY')} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-950/80 border border-zinc-800 hover:border-emerald-500/50 hover:bg-zinc-900 text-zinc-300 backdrop-blur-md transition-all">
+                  🗽 Times Square
+                </button>
+                <button onClick={() => teleportShortcut('Eiffel Tower, Paris')} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-950/80 border border-zinc-800 hover:border-emerald-500/50 hover:bg-zinc-900 text-zinc-300 backdrop-blur-md transition-all">
+                  🗼 Eiffel Tower
+                </button>
+                <button onClick={() => teleportShortcut('Shibuya Crossing, Tokyo')} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-950/80 border border-zinc-800 hover:border-emerald-500/50 hover:bg-zinc-900 text-zinc-300 backdrop-blur-md transition-all">
+                  🍣 Shibuya Crossing
+                </button>
+                <button onClick={() => teleportShortcut('Colosseum, Rome')} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-950/80 border border-zinc-800 hover:border-emerald-500/50 hover:bg-zinc-900 text-zinc-300 backdrop-blur-md transition-all">
+                  🏛️ Colosseum
+                </button>
+              </div>
+            )}
 
             {/* Navigation Overlay bottom right */}
             <div className="absolute bottom-6 right-6 flex flex-col items-center bg-zinc-950/80 border border-zinc-800/85 p-3 rounded-2xl backdrop-blur-lg shadow-xl z-10 pointer-events-auto">

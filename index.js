@@ -4,6 +4,7 @@ import fs from 'fs';
 import 'dotenv/config';
 import { fileURLToPath } from 'url';
 import { attachWebsocketServer } from './gemini-ws.js';
+import { planTour } from './tour-planning.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -19,6 +20,20 @@ app.get('/api/config', (req, res) => {
   res.status(200).json({
     VITE_GOOGLE_MAPS_API_KEY: process.env.VITE_GOOGLE_MAPS_API_KEY || ''
   });
+});
+
+// Plan a multi-stop guided tour for the given area.
+app.post('/api/plan-tour', async (req, res) => {
+  const area = typeof req.body?.area === 'string' ? req.body.area.trim() : '';
+  if (!area) return res.status(400).json({ error: 'missing area' });
+  try {
+    const itinerary = await planTour(area);
+    if (itinerary.error) return res.status(502).json({ error: itinerary.error });
+    res.status(200).json(itinerary);
+  } catch (err) {
+    console.error('[Server] /api/plan-tour failed:', err);
+    res.status(500).json({ error: err?.message || String(err) });
+  }
 });
 
 const DIST_PATH = path.join(__dirname, 'dist');

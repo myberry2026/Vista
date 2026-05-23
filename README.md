@@ -16,6 +16,7 @@ Vista is a standalone, minimal Web App that allows you to explore the world thro
    git clone https://github.com/myberry2026/Vista.git
    cd Vista
    ```
+   *(Note: If you are already in the project directory `GoogleIO-hackthon`, you can skip this step or ensure you are in the root folder.)*
 
 2. **Install dependencies**:
    ```bash
