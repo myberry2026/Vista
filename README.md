@@ -48,7 +48,7 @@ docker run -p 8080:8080 -e GEMINI_API_KEY=xxx -e VITE_GOOGLE_MAPS_API_KEY=xxx vi
 ```
 
 ## Contributors
-- Jingguang Zhou
+- Jingguang Zhou [winterandchaiyun@gmail.com]
 - Shawn Zhou
 
 ## License
