@@ -1,7 +1,5 @@
 # Vista: Roam the world from your screen
 
-[![Run on Google Cloud](https://deploy.cloud.run/button.svg)](https://deploy.cloud.run)
-
 Vista is a standalone, minimal Web App that allows you to explore the world through Google Street View with an AI-powered virtual tour guide.
 
 ## Features
