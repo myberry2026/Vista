@@ -37,6 +37,9 @@ Vista is a standalone, minimal Web App that allows you to explore the world thro
 
 ## Deployment
 
+### Live Demo
+Check out the live application: [https://vista-crodk7cewq-uc.a.run.app](https://vista-crodk7cewq-uc.a.run.app)
+
 ### Cloud Run (One-Click)
 Click the button above to deploy directly to your Google Cloud Project. You will be prompted for your API keys.
 
@@ -45,6 +48,10 @@ Click the button above to deploy directly to your Google Cloud Project. You will
 docker build -t vista .
 docker run -p 8080:8080 -e GEMINI_API_KEY=xxx -e VITE_GOOGLE_MAPS_API_KEY=xxx vista
 ```
+
+## Contributors
+- Jingguang Zhou
+- Shawn Zhou
 
 ## License
 MIT
